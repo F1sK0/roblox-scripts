@@ -1,0 +1,178 @@
+-- Инициализация необходимых сервисов Roblox
+local UserInputService = game:GetService("UserInputService")
+local Stats = game:GetService("Stats")
+local UIS = UserInputService -- адаптация под ваше сокращение
+
+-- Цвета (добавлены на основе контекста вашего скрипта)
+local purple = Color3.fromRGB(128, 0, 128)
+local white = Color3.fromRGB(255, 255, 255)
+
+-- ПРЕДПОЛАГАЕМЫЕ ФУНКЦИИ ВАШЕГО ИНТЕРФЕЙСА (Должны быть объявлены выше или заменены на вашу библиотеку)
+-- Если вы используете внешнюю библиотеку, здесь должна быть её загрузка, например:
+-- local Library = loadstring(game:HttpGet("ссылка_на_либу"))()
+local function newPage(name) return Instance.new("Frame") end
+local function addTab(id, text) end
+local function section(parent, title) end
+local function toggle(parent, text, key) end
+local function make(className, properties, parent) 
+    local obj = Instance.new(className)
+    for k, v in pairs(properties) do obj[k] = v end
+    if parent then obj.Parent = parent end
+    return obj
+end
+local function publish(key, value) end
+local function setting(key, default) return default end
+local function switchPage(name) end
+local window = { Visible = true }
+local gui = { Parent = game:GetService("CoreGui") }
+
+-- ВОССТАНОВЛЕННОЕ НАЧАЛО ФУНКЦИИ СЛАЙДЕРА (которое было обрезано в вашем запросе)
+local function slider(parent, label, key, min, max, step)
+    -- Предположим, что здесь создаются элементы track, fill, title и переменная width
+    local track = Instance.new("Frame")
+    local fill = Instance.new("Frame")
+    local title = Instance.new("TextLabel")
+    local width = 100 
+
+    local function update(x)
+        local ratio = math.clamp(
+            (x - track.AbsolutePosition.X) / width,
+            0, 1
+        )
+
+        local value = min + ratio * (max - min)
+        value = min + math.floor(
+            (value - min) / step + 0.5
+        ) * step
+        value = math.clamp(value, min, max)
+
+        publish(key, value)
+
+        local display = string.format("%.2f", value)
+        title.Text = label .. ": " .. display
+
+        fill.Size = UDim2.new(
+            (value - min) / (max - min), 0, 1, 0
+        )
+    end
+
+    local dragging = false
+
+    track.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+            or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            update(input.Position.X)
+        end
+    end)
+
+    UIS.InputChanged:Connect(function(input)
+        if dragging and (
+            input.UserInputType == Enum.UserInputType.MouseMovement
+            or input.UserInputType == Enum.UserInputType.Touch
+        ) then
+            update(input.Position.X)
+        end
+    end)
+
+    UIS.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+            or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = false
+        end
+    end)
+
+    update(
+        track.AbsolutePosition.X
+        + track.AbsoluteSize.X
+        * ((setting(key, min) - min) / (max - min))
+    )
+end
+
+-- ВАШ ОСНОВНОЙ КОД ИНТЕРФЕЙСА
+local aim = newPage("Aim")
+local esp = newPage("ESP")
+local visuals = newPage("Visuals")
+local hud = newPage("HUD")
+local movement = newPage("Movement")
+
+addTab("Aim", "◎   Aim Assist")
+addTab("ESP", "◈   ESP")
+addTab("Visuals", "▧   Visuals")
+addTab("HUD", "▤   HUD")
+addTab("Movement", "↗   Movement")
+
+section(aim, "AIM SETTINGS")
+toggle(aim, "Aim Assist option", "AimAssist")
+slider(aim, "FOV radius", "FOV", 40, 400, 10)
+slider(aim, "Smoothness", "Smoothness", 0.02, 0.5, 0.01)
+slider(aim, "Max distance", "MaxDistance", 50, 1000, 50)
+
+section(esp, "DISPLAY SETTINGS")
+toggle(esp, "ESP option", "ESP")
+toggle(esp, "Player names option", "Names")
+toggle(esp, "Highlight option", "Highlight")
+
+section(visuals, "SCREEN")
+toggle(visuals, "FOV display option", "ShowFOV")
+
+section(hud, "STATUS")
+toggle(hud, "Show ping", "ShowPing")
+
+local pingLabel = make("TextLabel", {
+    Size = UDim2.new(1, -4, 0, 36),
+    BackgroundColor3 = purple,
+    TextColor3 = white,
+    Text = "Ping: -- ms",
+    Font = Enum.Font.Gotham,
+    TextSize = 13,
+    BorderSizePixel = 0,
+}, hud)
+
+make("UICorner", {
+    CornerRadius = UDim.new(0, 7),
+}, pingLabel)
+
+section(movement, "GAME MECHANICS")
+
+make("TextLabel", {
+    Size = UDim2.new(1, -4, 0, 65),
+    BackgroundColor3 = purple,
+    TextColor3 = white,
+    TextWrapped = true,
+    TextSize = 12,
+    Font = Enum.Font.Gotham,
+    Text = "Add your own movement and dodge mechanics using validated game-server logic.",
+    BorderSizePixel = 0,
+}, movement)
+
+switchPage("Aim")
+
+UIS.InputBegan:Connect(function(input, processed)
+    if not processed
+        and input.KeyCode == Enum.KeyCode.RightControl then
+        window.Visible = not window.Visible
+    end
+end)
+
+local elapsed = 0
+
+task.spawn(function()
+    while gui.Parent do
+        task.wait(0.5)
+
+        if setting("ShowPing", true) then
+            local ok, result = pcall(function()
+                return Stats.Network.ServerStatsItem[
+                    "Data Ping"
+                ]:GetValue()
+            end)
+
+            pingLabel.Text = ok
+                and ("Ping: " .. math.floor(result) .. " ms")
+                or "Ping: unavailable"
+        else
+            pingLabel.Text = "Ping display disabled"
+        end
+    end
+end)
