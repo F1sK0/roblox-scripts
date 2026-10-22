@@ -1,42 +1,248 @@
--- Инициализация необходимых сервисов Roblox
 local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
 local Stats = game:GetService("Stats")
-local UIS = UserInputService -- адаптация под ваше сокращение
+local UIS = UserInputService
 
--- Цвета (добавлены на основе контекста вашего скрипта)
-local purple = Color3.fromRGB(128, 0, 128)
+local purple = Color3.fromRGB(110, 30, 180)
+local darkBg = Color3.fromRGB(25, 25, 30)
+local panelBg = Color3.fromRGB(35, 35, 40)
 local white = Color3.fromRGB(255, 255, 255)
+local gray = Color3.fromRGB(160, 160, 170)
 
--- ПРЕДПОЛАГАЕМЫЕ ФУНКЦИИ ВАШЕГО ИНТЕРФЕЙСА (Должны быть объявлены выше или заменены на вашу библиотеку)
--- Если вы используете внешнюю библиотеку, здесь должна быть её загрузка, например:
--- local Library = loadstring(game:HttpGet("ссылка_на_либу"))()
-local function newPage(name) return Instance.new("Frame") end
-local function addTab(id, text) end
-local function section(parent, title) end
-local function toggle(parent, text, key) end
-local function make(className, properties, parent) 
-    local obj = Instance.new(className)
-    for k, v in pairs(properties) do obj[k] = v end
-    if parent then obj.Parent = parent end
-    return obj
+local gui = Instance.new("ScreenGui")
+gui.Name = "CustomScriptHub"
+gui.ResetOnSpawn = false
+gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+local success, coregui = pcall(function() return game:GetService("CoreGui") end)
+gui.Parent = success and coregui or game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
+
+local window = Instance.new("Frame")
+window.Name = "MainWindow"
+window.Size = UDim2.new(0, 550, 0, 380)
+window.Position = UDim2.new(0.5, -275, 0.5, -190)
+window.BackgroundColor3 = darkBg
+window.BorderSizePixel = 0
+window.Active = true
+window.Draggable = true
+window.Parent = gui
+
+local windowCorner = Instance.new("UICorner")
+windowCorner.CornerRadius = UDim.new(0, 8)
+windowCorner.Parent = window
+
+local tabFrame = Instance.new("ScrollingFrame")
+tabFrame.Name = "TabFrame"
+tabFrame.Size = UDim2.new(0, 160, 1, -20)
+tabFrame.Position = UDim2.new(0, 10, 0, 10)
+tabFrame.BackgroundColor3 = panelBg
+tabFrame.BorderSizePixel = 0
+tabFrame.ScrollBarThickness = 0
+tabFrame.Parent = window
+
+local tabCorner = Instance.new("UICorner")
+tabCorner.CornerRadius = UDim.new(0, 6)
+tabCorner.Parent = tabFrame
+
+local tabLayout = Instance.new("UIListLayout")
+tabLayout.Padding = UDim.new(0, 5)
+tabLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+tabLayout.SortOrder = Enum.SortOrder.LayoutOrder
+tabLayout.Parent = tabFrame
+
+local tabPadding = Instance.new("UIPadding")
+padding = UDim.new(0, 5)
+tabPadding.PaddingTop = UDim.new(0, 5)
+tabPadding.Parent = tabFrame
+
+local container = Instance.new("Frame")
+container.Name = "Container"
+container.Size = UDim2.new(1, -190, 1, -20)
+container.Position = UDim2.new(0, 180, 0, 10)
+container.BackgroundColor3 = panelBg
+container.BorderSizePixel = 0
+container.Parent = window
+
+local containerCorner = Instance.new("UICorner")
+containerCorner.CornerRadius = UDim.new(0, 6)
+containerCorner.Parent = container
+
+local pages = {}
+local tabs = {}
+local currentSettings = {}
+
+local function publish(key, value)
+    currentSettings[key] = value
 end
-local function publish(key, value) end
-local function setting(key, default) return default end
-local function switchPage(name) end
-local window = { Visible = true }
-local gui = { Parent = game:GetService("CoreGui") }
 
--- ВОССТАНОВЛЕННОЕ НАЧАЛО ФУНКЦИИ СЛАЙДЕРА (которое было обрезано в вашем запросе)
-local function slider(parent, label, key, min, max, step)
-    -- Предположим, что здесь создаются элементы track, fill, title и переменная width
-    local track = Instance.new("Frame")
-    local fill = Instance.new("Frame")
+local function setting(key, default)
+    if currentSettings[key] == nil then
+        currentSettings[key] = default
+    end
+    return currentSettings[key]
+end
+
+function newPage(name)
+    local page = Instance.new("ScrollingFrame")
+    page.Name = name .. "Page"
+    page.Size = UDim2.new(1, -10, 1, -10)
+    page.Position = UDim2.new(0, 5, 0, 5)
+    page.BackgroundColor3 = panelBg
+    page.BorderSizePixel = 0
+    page.ScrollBarThickness = 3
+    page.Visible = false
+    page.Parent = container
+
+    local pageLayout = Instance.new("UIListLayout")
+    pageLayout.Padding = UDim.new(0, 8)
+    pageLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    pageLayout.Parent = page
+
+    pages[name] = page
+    return page
+end
+
+function addTab(id, text)
+    local tabButton = Instance.new("TextButton")
+    tabButton.Name = id .. "Tab"
+    tabButton.Size = UDim2.new(1, -10, 0, 35)
+    tabButton.BackgroundColor3 = darkBg
+    tabButton.TextColor3 = gray
+    tabButton.Text = text
+    tabButton.Font = Enum.Font.GothamSemibold
+    tabButton.TextSize = 13
+    tabButton.BorderSizePixel = 0
+    tabButton.Parent = tabFrame
+
+    local btnCorner = Instance.new("UICorner")
+    btnCorner.CornerRadius = UDim.new(0, 5)
+    btnCorner.Parent = tabButton
+
+    tabButton.MouseButton1Click:Connect(function()
+        switchPage(id)
+    end)
+    
+    tabs[id] = tabButton
+end
+
+function switchPage(name)
+    for k, v in pairs(pages) do
+        v.Visible = false
+    end
+    for k, v in pairs(tabs) do
+        v.TextColor3 = gray
+        v.BackgroundColor3 = darkBg
+    end
+    if pages[name] then
+        pages[name].Visible = true
+    end
+    if tabs[name] then
+        tabs[name].TextColor3 = white
+        tabs[name].BackgroundColor3 = purple
+    end
+end
+
+function section(parent, titleText)
+    local secLabel = Instance.new("TextLabel")
+    secLabel.Size = UDim2.new(1, 0, 0, 20)
+    secLabel.BackgroundTransparency = 1
+    secLabel.Text = "--- " .. string.upper(titleText) .. " ---"
+    secLabel.TextColor3 = purple
+    secLabel.Font = Enum.Font.GothamBold
+    secLabel.TextSize = 11
+    secLabel.Parent = parent
+end
+function toggle(parent, text, key)
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(1, -4, 0, 35)
+    frame.BackgroundColor3 = darkBg
+    frame.BorderSizePixel = 0
+    frame.Parent = parent
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 5)
+    corner.Parent = frame
+
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1, -50, 1, 0)
+    label.Position = UDim2.new(0, 10, 0, 0)
+    label.BackgroundTransparency = 1
+    label.Text = text
+    label.TextColor3 = white
+    label.Font = Enum.Font.Gotham
+    label.TextSize = 13
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Parent = frame
+
+    local button = Instance.new("TextButton")
+    button.Size = UDim2.new(0, 40, 0, 20)
+    button.Position = UDim2.new(1, -50, 0.5, -10)
+    button.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
+    button.Text = ""
+    button.Parent = frame
+
+    local btnCorner = Instance.new("UICorner")
+    btnCorner.CornerRadius = UDim.new(1, 0)
+    btnCorner.Parent = button
+
+    local state = setting(key, false)
+    button.BackgroundColor3 = state and purple or Color3.fromRGB(50, 50, 55)
+
+    button.MouseButton1Click:Connect(function()
+        state = not state
+        publish(key, state)
+        TweenService:Create(button, TweenInfo.new(0.2), {
+            BackgroundColor3 = state and purple or Color3.fromRGB(50, 50, 55)
+        }):Play()
+    end)
+end
+
+function slider(parent, labelText, key, min, max, step)
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(1, -4, 0, 50)
+    frame.BackgroundColor3 = darkBg
+    frame.BorderSizePixel = 0
+    frame.Parent = parent
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 5)
+    corner.Parent = frame
+
     local title = Instance.new("TextLabel")
-    local width = 100 
+    title.Size = UDim2.new(1, -20, 0, 25)
+    title.Position = UDim2.new(0, 10, 0, 0)
+    title.BackgroundTransparency = 1
+    title.Text = labelText .. ": " .. setting(key, min)
+    title.TextColor3 = white
+    title.Font = Enum.Font.Gotham
+    title.TextSize = 13
+    title.TextXAlignment = Enum.TextXAlignment.Left
+    title.Parent = frame
+
+    local track = Instance.new("TextButton")
+    track.Size = UDim2.new(1, -20, 0, 6)
+    track.Position = UDim2.new(0, 10, 0, 32)
+    track.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
+    track.Text = ""
+    track.Parent = frame
+
+    local trackCorner = Instance.new("UICorner")
+    trackCorner.CornerRadius = UDim.new(1, 0)
+    trackCorner.Parent = track
+
+    local fill = Instance.new("Frame")
+    fill.Size = UDim2.new(0, 0, 1, 0)
+    fill.BackgroundColor3 = purple
+    fill.BorderSizePixel = 0
+    fill.Parent = track
+
+    local fillCorner = Instance.new("UICorner")
+    fillCorner.CornerRadius = UDim.new(1, 0)
+    fillCorner.Parent = fill
 
     local function update(x)
         local ratio = math.clamp(
-            (x - track.AbsolutePosition.X) / width,
+            (x - track.AbsolutePosition.X) / track.AbsoluteSize.X,
             0, 1
         )
 
@@ -49,7 +255,7 @@ local function slider(parent, label, key, min, max, step)
         publish(key, value)
 
         local display = string.format("%.2f", value)
-        title.Text = label .. ": " .. display
+        title.Text = labelText .. ": " .. display
 
         fill.Size = UDim2.new(
             (value - min) / (max - min), 0, 1, 0
@@ -89,7 +295,13 @@ local function slider(parent, label, key, min, max, step)
     )
 end
 
--- ВАШ ОСНОВНОЙ КОД ИНТЕРФЕЙСА
+function make(className, properties, parent) 
+    local obj = Instance.new(className)
+    for k, v in pairs(properties) do obj[k] = v end
+    if parent then obj.Parent = parent end
+    return obj
+end
+
 local aim = newPage("Aim")
 local esp = newPage("ESP")
 local visuals = newPage("Visuals")
@@ -155,17 +367,13 @@ UIS.InputBegan:Connect(function(input, processed)
     end
 end)
 
-local elapsed = 0
-
 task.spawn(function()
     while gui.Parent do
         task.wait(0.5)
 
         if setting("ShowPing", true) then
             local ok, result = pcall(function()
-                return Stats.Network.ServerStatsItem[
-                    "Data Ping"
-                ]:GetValue()
+                return Stats.Network.ServerStatsItem["Data Ping"]:GetValue()
             end)
 
             pingLabel.Text = ok
